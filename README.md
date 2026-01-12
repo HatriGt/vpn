@@ -1,6 +1,15 @@
-# VPN Server - WireGuard Easy
+# VPN Server - WireGuard & IKEv2/IPSec
 
-A Docker-based WireGuard VPN server setup using [wg-easy](https://github.com/wizki/wg-easy) that can be deployed on your VPS with Dokploy.
+Docker-based VPN server setups that can be deployed on your VPS with Dokploy. This repository includes:
+
+1. **WireGuard Easy** - Modern VPN with web UI (requires app on Android)
+2. **IKEv2/IPSec** - Native Android support (no app required)
+
+---
+
+## Option 1: WireGuard Easy
+
+A Docker-based WireGuard VPN server setup using [wg-easy](https://github.com/wizki/wg-easy).
 
 ## Features
 
@@ -201,6 +210,245 @@ docker compose down -v
 - [WireGuard Installation Guides](https://www.wireguard.com/install/)
 - [Dokploy Documentation](https://docs.dokploy.com/)
 
+---
+
+## Option 2: IKEv2/IPSec VPN (Native Android Support)
+
+An IKEv2/IPSec VPN server using [hwdsl2/ipsec-vpn-server](https://github.com/hwdsl2/docker-ipsec-vpn-server) that works with Android's native VPN settings **without requiring any app**.
+
+### Features
+
+- ✅ **Native Android Support**: Works with Android's built-in VPN settings (no app needed!)
+- ✅ **iOS Support**: Native support on iOS devices
+- ✅ **Windows/macOS**: Works with built-in VPN clients
+- ✅ **Secure**: IKEv2/IPSec protocol with certificate or PSK authentication
+- ✅ **Easy Setup**: Simple Docker Compose configuration
+
+### Prerequisites
+
+- VPS with Docker and Docker Compose installed
+- Dokploy installed on your VPS (or Docker directly)
+- Firewall access to open ports (500/UDP and 4500/UDP)
+- Your VPS public IP address or domain name
+- IP forwarding enabled (already done on your VPS)
+
+### Quick Start
+
+#### 1. Configure Environment Variables
+
+Copy the example environment file and edit it:
+
+```bash
+cp env-ikev2.example .env
+nano .env  # or use your preferred editor
+```
+
+**Important variables to set:**
+- `VPN_IPSEC_PSK`: A strong pre-shared key (generate with: `openssl rand -base64 32`)
+- `VPN_USER`: Your VPN username
+- `VPN_PASSWORD`: A strong VPN password
+
+#### 2. Deploy with Dokploy
+
+1. Log in to your Dokploy dashboard
+2. Create a new application/project
+3. Choose "Docker Compose" as the deployment method
+4. Upload or paste the contents of `docker-compose-ikev2.yml`
+5. Set the environment variables from your `.env` file:
+   - `VPN_IPSEC_PSK`
+   - `VPN_USER`
+   - `VPN_PASSWORD`
+6. Deploy the application
+
+#### 3. Configure IKEv2 (After Initial Deployment)
+
+After the container starts, you need to configure IKEv2:
+
+```bash
+# SSH into your VPS
+ssh akvps
+
+# Access the container
+docker exec -it ipsec-vpn-server bash
+
+# Run the IKEv2 setup script
+wget https://git.io/ikev2setup -O ikev2.sh && bash ikev2.sh
+```
+
+Follow the prompts:
+- Enter your server's public IP or domain: `207.154.195.244` (or your domain)
+- Choose certificate type (recommended: ECDSA for better performance)
+- Enter a name for the first client (e.g., "android")
+
+#### 4. Configure Firewall
+
+Open the necessary ports:
+
+```bash
+# UFW (Ubuntu)
+sudo ufw allow 500/udp
+sudo ufw allow 4500/udp
+
+# Or for other firewalls
+# Allow UDP port 500 (IKE)
+# Allow UDP port 4500 (NAT traversal)
+```
+
+### Connecting from Android (Native - No App!)
+
+1. Go to **Settings** → **Network & Internet** → **VPN**
+2. Tap the **"+"** or **"Add VPN"** button
+3. Fill in the details:
+   - **Name**: Any name (e.g., "My VPN")
+   - **Type**: **IKEv2/IPSec PSK**
+   - **Server address**: Your VPS IP (e.g., `207.154.195.244`)
+   - **IPSec pre-shared key**: The `VPN_IPSEC_PSK` value from your `.env`
+   - **Username**: The `VPN_USER` value
+   - **Password**: The `VPN_PASSWORD` value
+4. Tap **Save**
+5. Tap on the VPN profile to connect
+
+### Alternative: Certificate-Based IKEv2 (More Secure)
+
+For certificate-based authentication (no PSK needed):
+
+1. **Copy the certificate from the container:**
+   ```bash
+   # From your VPS
+   docker cp ipsec-vpn-server:/etc/ipsec.d/vpnclient.p12 ./vpnclient.p12
+   ```
+
+2. **Transfer the certificate to your Android device** (via USB, email, or cloud storage)
+
+3. **On Android:**
+   - Settings → Network & Internet → VPN → Add VPN
+   - **Type**: **IKEv2/IPSec RSA**
+   - **Server address**: Your VPS IP
+   - **Import certificate**: Select the `vpnclient.p12` file
+   - **Certificate password**: Enter the password shown during IKEv2 setup
+   - **Username**: The `VPN_USER` value
+   - **Password**: The `VPN_PASSWORD` value
+   - Save and connect
+
+### Connecting from Other Devices
+
+#### iOS (Native Support)
+1. Settings → General → VPN & Device Management → VPN
+2. Add VPN Configuration
+3. Type: IKEv2
+4. Enter server, username, password, and PSK (or import certificate)
+
+#### Windows (Native Support)
+1. Settings → Network & Internet → VPN → Add VPN
+2. VPN provider: Windows (built-in)
+3. Connection name: Any name
+4. Server name: Your VPS IP
+5. VPN type: IKEv2
+6. Enter username, password, and PSK
+
+#### macOS (Native Support)
+1. System Settings → Network → Add VPN
+2. Interface: VPN
+3. VPN Type: IKEv2
+4. Enter server, username, password, and PSK
+
+### Managing Users
+
+To add more VPN users:
+
+```bash
+# Access the container
+docker exec -it ipsec-vpn-server bash
+
+# Add a new user
+adduser vpnuser2
+# Follow prompts to set password
+
+# Or use the helper scripts in /opt/src
+```
+
+### Troubleshooting
+
+#### Can't Connect from Android
+
+1. **Check Firewall**: Ensure ports 500/UDP and 4500/UDP are open
+   ```bash
+   sudo ufw status
+   ```
+
+2. **Check Container Logs**:
+   ```bash
+   docker logs ipsec-vpn-server
+   ```
+
+3. **Verify IP Forwarding**: Should already be enabled, but check:
+   ```bash
+   sysctl net.ipv4.ip_forward  # Should return 1
+   ```
+
+4. **Check Container Status**:
+   ```bash
+   docker ps | grep ipsec
+   ```
+
+5. **Verify Credentials**: Double-check your PSK, username, and password match
+
+#### Connection Drops Frequently
+
+1. Check your VPS network stability
+2. Verify firewall isn't blocking keepalive packets
+3. Check container logs for errors
+
+### Security Best Practices
+
+1. **Strong PSK**: Use a long, random pre-shared key
+2. **Strong Passwords**: Use complex passwords for VPN users
+3. **Certificate Method**: Prefer certificate-based authentication over PSK
+4. **Firewall**: Only open necessary ports
+5. **Regular Updates**: Keep Docker images updated
+6. **Backup Certificates**: Backup the `ikev2-vpn-data` volume
+
+### Backup and Restore
+
+#### Backup
+```bash
+# Backup IKEv2 configuration and certificates
+docker run --rm -v vpn_ikev2-vpn-data:/data -v $(pwd):/backup \
+  alpine tar czf /backup/ikev2-backup-$(date +%Y%m%d).tar.gz -C /data .
+```
+
+#### Restore
+```bash
+# Stop the container
+docker compose -f docker-compose-ikev2.yml down
+
+# Restore from backup
+docker run --rm -v vpn_ikev2-vpn-data:/data -v $(pwd):/backup \
+  alpine tar xzf /backup/ikev2-backup-YYYYMMDD.tar.gz -C /data
+
+# Start the container
+docker compose -f docker-compose-ikev2.yml up -d
+```
+
+### Stopping and Removing
+
+```bash
+# Stop the VPN server
+docker compose -f docker-compose-ikev2.yml down
+
+# Remove everything (including data)
+docker compose -f docker-compose-ikev2.yml down -v
+```
+
+### Resources
+
+- [hwdsl2/docker-ipsec-vpn-server GitHub](https://github.com/hwdsl2/docker-ipsec-vpn-server)
+- [IKEv2 Setup Guide](https://github.com/hwdsl2/docker-ipsec-vpn-server#configure-and-use-ikev2-vpn)
+- [Dokploy Documentation](https://docs.dokploy.com/)
+
+---
+
 ## License
 
-This setup uses wg-easy which is licensed under the MIT License.
+- WireGuard setup uses wg-easy which is licensed under the MIT License
+- IKEv2 setup uses hwdsl2/ipsec-vpn-server which is licensed under the MIT License

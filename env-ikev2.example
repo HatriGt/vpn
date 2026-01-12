@@ -1,0 +1,12 @@
+# IKEv2/IPSec VPN Server Configuration
+# Copy this file to .env and update with your values
+
+# Pre-shared key for IPSec (use a strong random string)
+# Generate one with: openssl rand -base64 32
+VPN_IPSEC_PSK=your-strong-pre-shared-key-here
+
+# VPN username
+VPN_USER=your-vpn-username
+
+# VPN password (use a strong password)
+VPN_PASSWORD=your-strong-vpn-password

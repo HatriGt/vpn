@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  ipsec-vpn-server:
+    image: hwdsl2/ipsec-vpn-server
+    container_name: ipsec-vpn-server
+    restart: unless-stopped
+    privileged: true
+    ports:
+      # IKEv2/IPSec ports
+      - "500:500/udp"
+      - "4500:4500/udp"
+    environment:
+      # Pre-shared key for IPSec (change this!)
+      - VPN_IPSEC_PSK=${VPN_IPSEC_PSK}
+      # VPN username (change this!)
+      - VPN_USER=${VPN_USER}
+      # VPN password (change this!)
+      - VPN_PASSWORD=${VPN_PASSWORD}
+    volumes:
+      # Persist VPN configuration and certificates
+      - ikev2-vpn-data:/etc/ipsec.d
+    sysctls:
+      - net.ipv4.ip_forward=1
+    networks:
+      - vpn-network
+
+networks:
+  vpn-network:
+    driver: bridge
+
+volumes:
+  ikev2-vpn-data:
