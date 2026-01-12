@@ -1,0 +1,16 @@
+# Environment variables
+.env
+
+# WireGuard data directory (contains keys and configs)
+wg-easy-data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
